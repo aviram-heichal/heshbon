@@ -808,8 +808,9 @@ function showMap(){
   const p = prog();
   topBar('חזרה לרשימת הילדים', showHome, `החיבור של ${kid().name}`);
   stageHTML(`<div class="map" id="map">${LEVELS.map((L, i) => {
-    const st = i < p.max || (p.finished) ? 'done' : i === p.lvl ? 'cur' : i <= p.max ? 'cur' : 'locked';
-    const icon = st === 'done' ? '✓' : st === 'locked' ? '🔒' : i + 1;
+    // כרגע הכל פתוח (אבירם 31.10): אפשר להיכנס לכל שלב
+    const st = i < p.max || (p.finished) || (p.known || {})[L.id] ? 'done' : 'cur';
+    const icon = st === 'done' ? '✓' : i + 1;
     return `<button class="lv ${i === p.lvl ? 'cur' : st}" data-i="${i}" ${st === 'locked' ? 'disabled' : ''}><span class="n">${icon}</span><span>${esc(L.name)}<span class="ex">${esc(L.ex)}</span></span></button>`;
   }).join('')}</div><button class="gold" id="go">▶ ממשיכים: ${esc(LEVELS[p.lvl].name)}</button>`);
   bubble(`${kid().name}, ${G('מוכן', 'מוכנה')}? ממשיכים מהשלב "${LEVELS[p.lvl].name}"`);
