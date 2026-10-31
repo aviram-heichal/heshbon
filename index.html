@@ -523,7 +523,7 @@ async function stWords(L, r){
     { w: 'שָׁוֶה', sign: '=', key: 'w2', stem: ['שווה', 'שוה'] },
     { w: 'סְכוּם', sign: '∑', key: 'w3', stem: ['סכום', 'סיכום'] },
   ];
-  if (await wordsQuiz(r, true)){ prog().words = true; save(); return; }
+  if (prog().learn !== L.id && await wordsQuiz(r, true)){ prog().words = true; save(); return; }
   stageHTML(`<p class="h1">4 מילים חשובות</p><div class="row">${W.map(x => `<div class="card" style="font-size:34px;font-weight:900">${x.w}</div>`).join('')}</div>`);
   await say('words', r);
   for (const x of W){
@@ -761,13 +761,15 @@ async function playLevel(){
     while (p.si < L.stages.length){
       const s = L.stages[p.si];
       chips(L, p.si);
-      if (s === 'words' && p.words){ p.si++; save(); continue; }
+      if (s === 'words' && p.words && p.learn !== L.id){ p.si++; save(); continue; }
+      if (s === 'pre' && p.learn === L.id){ p.si++; save(); continue; }
       const out = await RUNNERS[s](L, r);
       alive(r);
       if (out === 'known'){ p.si = L.stages.length; save(); skipped = true; break; }
       p.si++; save();
     }
     // השלב הושלם
+    delete p.learn;
     p.lvl++; p.si = 0; p.max = Math.max(p.max, p.lvl); save();
     chips(null);
     if (p.lvl >= LEVELS.length){
@@ -778,8 +780,13 @@ async function playLevel(){
     }
     if (skipped){
       stageHTML(`<div class="big">⚡</div><p class="h1">את זה ${esc(kid().name)} כבר ${G('יודע', 'יודעת')}!</p><p class="sub">ממשיכים ל: ${esc(LEVELS[p.lvl].name)}</p>`);
-      confetti(); jump(); await say('known', r); await wait(400); alive(r);
-      playLevel(); return;
+      confetti(); jump(); await say('known', r); alive(r);
+      const kr = document.createElement('div'); kr.className = 'row';
+      kr.innerHTML = `<button class="gold" id="kgo">ממשיכים ←</button><button class="ghost" id="klearn">בכל זאת ללמוד את "${esc(L.name)}"</button>`;
+      $('#stage').appendChild(kr);
+      $('#kgo').onclick = playLevel;
+      $('#klearn').onclick = () => { p.lvl = LEVELS.indexOf(L); p.si = 0; p.learn = L.id; delete (p.known || {})[L.id]; save(); playLevel(); };
+      return;
     }
     stageHTML(`<div class="big">🎉</div><p class="h1">כל הכבוד ${esc(kid().name)}!</p><p class="sub">השלב הבא: ${esc(LEVELS[p.lvl].name)}</p>`);
     confetti(); jump(); await say('levelUp', r);
@@ -809,7 +816,7 @@ function showMap(){
   $('#go').onclick = playLevel;
   document.querySelectorAll('#map .lv').forEach(b => b.onclick = () => {
     const i = +b.dataset.i; if (b.disabled) return;
-    if (i !== p.lvl){ p.lvl = i; p.si = 0; save(); }
+    if (i !== p.lvl || i < p.max){ p.lvl = i; p.si = 0; p.learn = LEVELS[i].id; save(); }
     playLevel();
   });
 }
@@ -905,7 +912,7 @@ function showAdult(){
       <button class="ghost small" id="cp">📋 העתקת התוצאות</button>
     </div>
     <p class="note">אם הווטסאפ לא נפתח: מעתיקים ושולחים ל-054-4429422.</p>
-    <h3>למאמנים: לקפוץ לשלב</h3>
+    <h3>למאמנים: לקפוץ לשלב (נפתח מההתחלה, בלי דילוג)</h3>
     <div class="pick" id="jp">${LEVELS.map((L, i) => `<button type="button" data-i="${i}">${i + 1}. ${esc(L.name)}</button>`).join('')}</div>
     <h3>איפוס</h3><button class="ghost small" id="rs">מחיקת ההתקדמות של ${esc(k.name)}</button> <span class="note" id="rsn"></span>
   </div>`);
@@ -914,7 +921,7 @@ function showAdult(){
   $('#cp').onclick = () => { navigator.clipboard.writeText(txt).then(() => { $('#cp').textContent = '✓ הועתק'; }, () => { $('#cp').textContent = 'לא הצלחתי להעתיק'; }); };
   document.querySelectorAll('#kp button').forEach(b => b.onclick = () => { DB.cur = b.dataset.id; save(); showAdult(); });
   document.querySelectorAll('#jp button').forEach(b => b.onclick = () => {
-    DB.cur = sel; const p = prog(); const i = +b.dataset.i; p.lvl = i; p.si = 0; p.max = Math.max(p.max, i); save(); showMap();
+    DB.cur = sel; const p = prog(); const i = +b.dataset.i; p.lvl = i; p.si = 0; p.learn = LEVELS[i].id; p.max = Math.max(p.max, i); save(); showMap();
   });
   let armed = false;
   $('#rs').onclick = () => {
